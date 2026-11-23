@@ -437,7 +437,7 @@ function RainWeather() {
 
 function AnimatedPersonMesh({ actionName }: { actionName: 'Idle' | 'Walk' | 'Run' }) {
   const group = useRef<any>(null);
-  const { scene, animations } = useGLTF('/models/person.glb');
+  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}models/person.glb`);
   const cloned = useMemo(() => {
     const c = cloneSkeleton(scene);
     c.traverse((obj: any) => {
@@ -465,7 +465,7 @@ function AnimatedPersonMesh({ actionName }: { actionName: 'Idle' | 'Walk' | 'Run
 }
 
 function RealGLBCarModel({ color, wheelSpin }: { color: string; wheelSpin: React.MutableRefObject<number> }) {
-  const { scene } = useGLTF('/models/car.glb');
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/car.glb`);
   const wheelsRef = useRef<THREE.Object3D[]>([]);
 
   const clonedScene = useMemo(() => {
@@ -964,7 +964,7 @@ function IstaravshanCity({
   const asphaltPBR = useMemo(() => createAsphaltPBR(), []);
 
   useEffect(() => {
-    fetch('/istaravshan.json')
+    fetch(`${import.meta.env.BASE_URL}istaravshan.json`)
       .then((res) => {
         if (!res.ok) throw new Error('Файл не найден');
         return res.json();
