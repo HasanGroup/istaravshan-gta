@@ -620,6 +620,15 @@ function IstaravshanCity({
 
   return (
     <group>
+      {/* Общий пол и физический коллайдер земли всего городка */}
+      <RigidBody type="fixed" position={[0, -0.25, 0]}>
+        <CuboidCollider args={[900, 0.25, 900]} />
+        <mesh position={[0, 0.25, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[1800, 1800]} />
+          <meshStandardMaterial color="#8c9a7a" roughness={0.95} metalness={0.02} />
+        </mesh>
+      </RigidBody>
+
       <SurroundingMountains timeMode={timeMode} />
       <MugTeppaMonument timeMode={timeMode} />
 
