@@ -6,9 +6,6 @@ import { Physics, RigidBody, CuboidCollider, CapsuleCollider } from '@react-thre
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const CENTER_LAT = 39.9115;
-const CENTER_LON = 69.0035;
-const METERS_PER_LAT = 111320;
-const METERS_PER_LON = 111320 * Math.cos((CENTER_LAT * Math.PI) / 180);
 
 const LOCATIONS = [
   {
