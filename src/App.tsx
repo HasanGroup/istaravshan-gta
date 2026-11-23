@@ -568,7 +568,7 @@ function useControls() {
   return controls;
 }
 
-// Лёгкий городок по мотивам схемы Истаравшана без тяжёлого стриминга тысяч сегментов
+// Аккуратный городок Истаравшан: улицы, кварталы, ограждения, деревья/кусты, базар, больница и люди
 const TOWN_ROADS: RoadSegment[] = [
   { x1: -420, z1: 0, x2: 420, z2: 0, width: 14 },
   { x1: 0, z1: -420, x2: 0, z2: 420, width: 14 },
@@ -576,31 +576,101 @@ const TOWN_ROADS: RoadSegment[] = [
   { x1: -360, z1: 140, x2: 360, z2: 140, width: 10 },
   { x1: -180, z1: -360, x2: -180, z2: 360, width: 10 },
   { x1: 180, z1: -360, x2: 180, z2: 360, width: 10 },
-  { x1: -320, z1: -280, x2: 320, z2: -280, width: 8 },
-  { x1: -320, z1: 280, x2: 320, z2: 280, width: 8 },
 ];
 
-const TOWN_BLOCKS: { x: number; z: number; w: number; h: number; d: number; color: string }[] = [
-  { x: -90, z: -70, w: 54, h: 10, d: 38, color: '#cbd5e1' },
-  { x: 90, z: -70, w: 58, h: 12, d: 40, color: '#e2e8f0' },
-  { x: -90, z: 70, w: 52, h: 9, d: 36, color: '#d6d3d1' },
-  { x: 90, z: 70, w: 62, h: 11, d: 42, color: '#cbd5e1' },
-  { x: -250, z: -70, w: 48, h: 8, d: 34, color: '#e7e5e4' },
-  { x: 250, z: -70, w: 50, h: 9, d: 36, color: '#cbd5e1' },
-  { x: -250, z: 70, w: 46, h: 8, d: 34, color: '#d6d3d1' },
-  { x: 250, z: 70, w: 52, h: 10, d: 38, color: '#e2e8f0' },
-  { x: -90, z: -210, w: 56, h: 9, d: 38, color: '#cbd5e1' },
-  { x: 90, z: -210, w: 54, h: 8, d: 36, color: '#e7e5e4' },
-  { x: -90, z: 210, w: 58, h: 10, d: 38, color: '#e2e8f0' },
-  { x: 90, z: 210, w: 52, h: 8, d: 36, color: '#d6d3d1' },
+const TOWN_BLOCKS: { x: number; z: number; w: number; h: number; d: number; color: string; roof?: string }[] = [
+  { x: -90, z: -70, w: 50, h: 9, d: 34, color: '#cbd5e1', roof: '#475569' },
+  { x: 90, z: -70, w: 54, h: 10, d: 36, color: '#e2e8f0', roof: '#334155' },
+  { x: -90, z: 70, w: 48, h: 8, d: 32, color: '#d6d3d1', roof: '#57534e' },
+  { x: 90, z: 70, w: 56, h: 10, d: 36, color: '#cbd5e1', roof: '#475569' },
+  { x: -250, z: -70, w: 46, h: 8, d: 32, color: '#e7e5e4', roof: '#64748b' },
+  { x: 250, z: -70, w: 48, h: 9, d: 34, color: '#cbd5e1', roof: '#475569' },
+  { x: -250, z: 70, w: 44, h: 8, d: 32, color: '#d6d3d1', roof: '#57534e' },
+  { x: 250, z: 70, w: 50, h: 9, d: 34, color: '#e2e8f0', roof: '#334155' },
+];
+
+const TOWN_FENCES: { x: number; z: number; len: number; rotY: number }[] = [
+  { x: -45, z: 9, len: 24, rotY: 0 },
+  { x: 45, z: 9, len: 24, rotY: 0 },
+  { x: -45, z: -9, len: 24, rotY: 0 },
+  { x: 45, z: -9, len: 24, rotY: 0 },
+  { x: -135, z: 9, len: 22, rotY: 0 },
+  { x: 135, z: 9, len: 22, rotY: 0 },
 ];
 
 const TOWN_TREES: [number, number][] = [
-  [-45, -12], [45, -12], [-45, 12], [45, 12],
-  [-135, -12], [135, -12], [-135, 12], [135, 12],
-  [-12, -85], [12, -85], [-12, 85], [12, 85],
-  [-12, -195], [12, -195], [-12, 195], [12, 195],
+  [-32, -11], [32, -11], [-32, 11], [32, 11],
+  [-120, -11], [120, -11], [-120, 11], [120, 11],
+  [-11, -65], [11, -65], [-11, 65], [11, 65],
 ];
+
+const TOWN_BUSHES: [number, number, number][] = [
+  [-22, -10.5, 1.1], [22, -10.5, 1.2], [-22, 10.5, 1.0], [22, 10.5, 1.15],
+  [-105, -10.5, 1.1], [105, -10.5, 1.05], [-105, 10.5, 1.2], [105, 10.5, 1.1],
+  [-10.5, -45, 1.1], [10.5, -45, 1.0], [-10.5, 45, 1.15], [10.5, 45, 1.05],
+];
+
+function BazaarZone() {
+  const stalls = [
+    [-24, 0, '#d97706'],
+    [-8, 0, '#0284c7'],
+    [8, 0, '#16a34a'],
+    [24, 0, '#ea580c'],
+  ] as const;
+
+  return (
+    <RigidBody type="fixed" position={[-180, 0, -140]}>
+      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[68, 44]} />
+        <meshStandardMaterial color="#a8a29e" roughness={0.9} />
+      </mesh>
+      {stalls.map(([sx, sz, col], idx) => (
+        <group key={idx} position={[sx, 0, sz]}>
+          <mesh position={[0, 1.1, 0]}>
+            <boxGeometry args={[10, 2.2, 6]} />
+            <meshStandardMaterial color="#f5f5f4" roughness={0.8} />
+          </mesh>
+          <mesh position={[0, 2.4, 0]}>
+            <boxGeometry args={[11, 0.35, 7]} />
+            <meshStandardMaterial color={col} roughness={0.6} />
+          </mesh>
+        </group>
+      ))}
+    </RigidBody>
+  );
+}
+
+function HospitalZone({ timeMode }: { timeMode: number }) {
+  return (
+    <RigidBody type="fixed" position={[180, 0, 140]}>
+      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[64, 46]} />
+        <meshStandardMaterial color="#cbd5e1" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 5.5, 0]}>
+        <boxGeometry args={[36, 11, 18]} />
+        <meshStandardMaterial
+          color="#f8fafc"
+          roughness={0.65}
+          emissive={timeMode === 2 ? '#e0f2fe' : '#000000'}
+          emissiveIntensity={timeMode === 2 ? 0.2 : 0}
+        />
+      </mesh>
+      <mesh position={[0, 11.3, 0]}>
+        <boxGeometry args={[37, 0.6, 19]} />
+        <meshStandardMaterial color="#0284c7" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 7.2, 9.2]}>
+        <boxGeometry args={[1.4, 4.2, 0.4]} />
+        <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.4} />
+      </mesh>
+      <mesh position={[0, 7.2, 9.2]}>
+        <boxGeometry args={[4.2, 1.4, 0.4]} />
+        <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.4} />
+      </mesh>
+    </RigidBody>
+  );
+}
 
 function IstaravshanCity({
   timeMode,
@@ -615,12 +685,11 @@ function IstaravshanCity({
 
   useEffect(() => {
     worldState.nearbyRoads = TOWN_ROADS;
-    onStatus('Истаравшан: лёгкая схема городка');
+    onStatus('Истаравшан: городок, базар и больница');
   }, [onStatus]);
 
   return (
     <group>
-      {/* Общий пол и физический коллайдер земли всего городка */}
       <RigidBody type="fixed" position={[0, -0.25, 0]}>
         <CuboidCollider args={[900, 0.25, 900]} />
         <mesh position={[0, 0.25, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -631,6 +700,8 @@ function IstaravshanCity({
 
       <SurroundingMountains timeMode={timeMode} />
       <MugTeppaMonument timeMode={timeMode} />
+      <BazaarZone />
+      <HospitalZone timeMode={timeMode} />
 
       {CITY_SIGNS.map((s, idx) => (
         <CitySignBoard key={idx} {...s} timeMode={timeMode} />
@@ -649,11 +720,7 @@ function IstaravshanCity({
           >
             <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[r.width, len]} />
-              <meshStandardMaterial
-                map={asphaltPBR.map}
-                roughness={0.85}
-                metalness={0.05}
-              />
+              <meshStandardMaterial map={asphaltPBR.map} roughness={0.85} metalness={0.05} />
             </mesh>
             <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[0.16, len]} />
@@ -671,8 +738,23 @@ function IstaravshanCity({
               color={b.color}
               roughness={0.75}
               emissive={timeMode === 2 ? '#fef08a' : '#000000'}
-              emissiveIntensity={timeMode === 2 ? 0.15 : 0}
+              emissiveIntensity={timeMode === 2 ? 0.12 : 0}
             />
+          </mesh>
+          {b.roof && (
+            <mesh position={[0, b.h / 2 + 0.25, 0]}>
+              <boxGeometry args={[b.w + 0.6, 0.5, b.d + 0.6]} />
+              <meshStandardMaterial color={b.roof} roughness={0.8} />
+            </mesh>
+          )}
+        </RigidBody>
+      ))}
+
+      {TOWN_FENCES.map((f, i) => (
+        <RigidBody key={i} type="fixed" position={[f.x, 0.6, f.z]} rotation={[0, f.rotY, 0]}>
+          <mesh>
+            <boxGeometry args={[f.len, 1.2, 0.22]} />
+            <meshStandardMaterial color="#64748b" roughness={0.7} metalness={0.3} />
           </mesh>
         </RigidBody>
       ))}
@@ -680,14 +762,21 @@ function IstaravshanCity({
       {TOWN_TREES.map(([tx, tz], i) => (
         <group key={i} position={[tx, 0, tz]}>
           <mesh position={[0, 1.6, 0]}>
-            <cylinderGeometry args={[0.2, 0.3, 3.2, 6]} />
+            <cylinderGeometry args={[0.18, 0.28, 3.2, 6]} />
             <meshStandardMaterial color="#5c4033" roughness={0.9} />
           </mesh>
           <mesh position={[0, 4.1, 0]}>
-            <dodecahedronGeometry args={[2.1, 0]} />
+            <dodecahedronGeometry args={[2.0, 0]} />
             <meshStandardMaterial color="#3f6212" roughness={0.85} />
           </mesh>
         </group>
+      ))}
+
+      {TOWN_BUSHES.map(([bx, bz, s], i) => (
+        <mesh key={i} position={[bx, 0.65 * s, bz]} scale={[s * 1.3, s * 0.85, s]}>
+          <dodecahedronGeometry args={[0.9, 0]} />
+          <meshStandardMaterial color="#4d7c0f" roughness={0.88} />
+        </mesh>
       ))}
     </group>
   );
@@ -735,7 +824,11 @@ function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" position={[cfg.axis === 'x' ? cfg.start : cfg.lane, 0.58, cfg.axis === 'z' ? cfg.start : cfg.lane]}>
+    <RigidBody
+      ref={bodyRef}
+      type="kinematicPosition"
+      position={[cfg.axis === 'x' ? cfg.start : cfg.lane, 0.58, cfg.axis === 'z' ? cfg.start : cfg.lane]}
+    >
       <Suspense fallback={null}>
         <RealGLBCarModel color={cfg.color} wheelSpin={wheelSpin} />
       </Suspense>
@@ -750,30 +843,42 @@ function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode
 }
 
 function Pedestrian({ cfg }: { cfg: (typeof PEDESTRIANS)[number] }) {
-  const meshRef = useRef<any>(null);
+  const groupRef = useRef<any>(null);
   const posRef = useRef((cfg as any).start ?? 0);
 
-  useFrame((_, delta) => {
-    const m = meshRef.current;
-    if (!m) return;
+  useFrame((state, delta) => {
+    const g = groupRef.current;
+    if (!g) return;
     const dt = Math.min(delta, 0.05);
-    const speed = (cfg as any).speed ?? 2.2;
+    const speed = (cfg as any).speed ?? 1.8;
     const dir = (cfg as any).dir ?? 1;
     posRef.current += dir * speed * dt;
-    if (posRef.current > 180) posRef.current = -180;
-    if (posRef.current < -180) posRef.current = 180;
+    if (posRef.current > 150) posRef.current = -150;
+    if (posRef.current < -150) posRef.current = 150;
+
     const axis = (cfg as any).axis ?? 'x';
     const lane = (cfg as any).lane ?? 8;
     const x = axis === 'x' ? posRef.current : lane;
     const z = axis === 'z' ? posRef.current : lane;
-    m.position.set(x, 0.9, z);
+    const bob = Math.abs(Math.sin(state.clock.elapsedTime * 7 + ((cfg as any).id ?? 0))) * 0.06;
+
+    g.position.set(x, 0.9 + bob, z);
+    g.rotation.y = axis === 'x' ? (dir === 1 ? Math.PI / 2 : -Math.PI / 2) : dir === 1 ? 0 : Math.PI;
   });
 
+  const shirtColor = (cfg as any).color ?? '#38bdf8';
+
   return (
-    <mesh ref={meshRef} position={[0, 0.9, 8]}>
-      <capsuleGeometry args={[0.32, 1.1, 4, 8]} />
-      <meshStandardMaterial color={(cfg as any).color ?? '#f59e0b'} roughness={0.7} />
-    </mesh>
+    <group ref={groupRef} position={[0, 0.9, 8]}>
+      <mesh position={[0, 0, 0]}>
+        <capsuleGeometry args={[0.26, 0.85, 4, 8]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.75} />
+      </mesh>
+      <mesh position={[0, 0.72, 0]}>
+        <sphereGeometry args={[0.22, 8, 8]} />
+        <meshStandardMaterial color="#f1c27d" roughness={0.8} />
+      </mesh>
+    </group>
   );
 }
 
