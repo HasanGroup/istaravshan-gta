@@ -580,7 +580,7 @@ function IstaravshanTrees({ roads }: { roads: RoadSegment[] }) {
         <cylinderGeometry args={[0.18, 0.28, 3.6, 7]} />
         <meshStandardMaterial color="#4a3525" roughness={0.9} />
       </instancedMesh>
-      <instancedMesh ref={crownRef} args={[undefined, undefined, trees.length]} castShadow receiveShadow>
+      <instancedMesh ref={crownRef} args={[undefined, undefined, trees.length]}>
         <dodecahedronGeometry args={[2.2, 1]} />
         <meshStandardMaterial roughness={0.85} />
       </instancedMesh>
@@ -1017,7 +1017,7 @@ function IstaravshanCity({
         if (list) result.push(...list);
       }
     }
-    return result;
+    return result.slice(0, 420);
   }, [roadChunks, chunkCoords]);
 
   useEffect(() => {
@@ -1061,7 +1061,7 @@ function IstaravshanCity({
             position={[(r.x1 + r.x2) / 2, 0.03, (r.z1 + r.z2) / 2]}
             rotation={[0, angle, 0]}
           >
-            <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[r.width + 2.4, len + 2.4]} />
               <meshStandardMaterial color="#94a3b8" roughness={isRain ? 0.3 : 0.9} />
             </mesh>
@@ -1087,7 +1087,7 @@ function IstaravshanCity({
       })}
 
       {buildingGeoms.map((b, i) => (
-        <mesh key={i} geometry={b.geom} castShadow receiveShadow>
+        <mesh key={i} geometry={b.geom}>
           <meshStandardMaterial
             color={b.color}
             roughness={0.75}
