@@ -1164,7 +1164,7 @@ export default function App() {
   const [bannerText, setBannerText] = useState<string | null>(null);
   const [timeMode, setTimeMode] = useState(0);
   const [carIndex, setCarIndex] = useState(0);
-  const [mapStatus, setMapStatus] = useState('Загрузка геоданных...');
+  const [, setMapStatus] = useState('Загрузка геоданных...');
   const [radioStation, setRadioStation] = useState(0);
   const [activeGuide, setActiveGuide] = useState<(typeof LOCATIONS)[number] | null>(null);
 
