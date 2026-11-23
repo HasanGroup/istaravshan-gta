@@ -5,7 +5,6 @@ import { Sky, Environment, useGLTF, useAnimations } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider, CapsuleCollider } from '@react-three/rapier';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
-const CENTER_LAT = 39.9115;
 
 const LOCATIONS = [
   {
