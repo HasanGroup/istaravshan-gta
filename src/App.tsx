@@ -1140,25 +1140,31 @@ function Pedestrian({ cfg }: { cfg: (typeof PEDESTRIANS)[number] }) {
   );
 }
 
+const TRAFFIC_UP_AXIS = new THREE.Vector3(0, 1, 0);
+const TRAFFIC_QUAT = new THREE.Quaternion();
+
 function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode: number }) {
   const bodyRef = useRef<any>(null);
   const posVal = useRef(cfg.start);
   const curSpeed = useRef(cfg.speed);
+  const wheelSpin = useRef(0);
 
   useFrame((_, delta) => {
     const body = bodyRef.current;
     if (!body) return;
 
+    const dt = Math.min(delta, 0.05);
     const x = cfg.axis === 'x' ? posVal.current : cfg.lane;
     const z = cfg.axis === 'z' ? posVal.current : cfg.lane;
 
     const distToPlayer = Math.hypot(worldState.activePos.x - x, worldState.activePos.z - z);
     const targetSpeed = distToPlayer < 14 ? 0 : cfg.speed;
-    curSpeed.current += (targetSpeed - curSpeed.current) * 6 * delta;
+    curSpeed.current += (targetSpeed - curSpeed.current) * 6 * dt;
 
-    posVal.current += cfg.dir * curSpeed.current * delta;
+    posVal.current += cfg.dir * curSpeed.current * dt;
     if (posVal.current > 260) posVal.current = -260;
     if (posVal.current < -260) posVal.current = 260;
+    wheelSpin.current += (curSpeed.current * dt) / 0.35;
 
     const angle =
       cfg.axis === 'x'
@@ -1169,31 +1175,23 @@ function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode
         ? 0
         : Math.PI;
 
-    body.setNextKinematicTranslation({ x, y: 0.65, z });
-    body.setNextKinematicRotation(
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle)
-    );
+    body.setNextKinematicTranslation({ x, y: 0.58, z });
+    TRAFFIC_QUAT.setFromAxisAngle(TRAFFIC_UP_AXIS, angle);
+    body.setNextKinematicRotation(TRAFFIC_QUAT);
     worldState.traffic[cfg.id] = { x, z };
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" position={[0, 0.65, 0]}>
-      <mesh castShadow>
-        <boxGeometry args={[1.85, 0.55, 4.2]} />
-        <meshStandardMaterial color={cfg.color} roughness={0.2} metalness={0.75} />
-      </mesh>
-      <mesh castShadow position={[0, 0.52, -0.15]}>
-        <boxGeometry args={[1.55, 0.5, 2.15]} />
-        <meshStandardMaterial color="#090d16" roughness={0.05} metalness={0.95} />
-      </mesh>
-      <mesh position={[0.6, 0.08, 2.11]}>
-        <boxGeometry args={[0.38, 0.16, 0.05]} />
-        <meshStandardMaterial color="#fef08a" emissive="#fef08a" emissiveIntensity={timeMode >= 1 ? 5 : 1.5} />
-      </mesh>
-      <mesh position={[-0.6, 0.08, 2.11]}>
-        <boxGeometry args={[0.38, 0.16, 0.05]} />
-        <meshStandardMaterial color="#fef08a" emissive="#fef08a" emissiveIntensity={timeMode >= 1 ? 5 : 1.5} />
-      </mesh>
+    <RigidBody ref={bodyRef} type="kinematicPosition" position={[cfg.axis === 'x' ? cfg.start : cfg.lane, 0.58, cfg.axis === 'z' ? cfg.start : cfg.lane]}>
+      <Suspense fallback={null}>
+        <RealGLBCarModel color={cfg.color} wheelSpin={wheelSpin} />
+      </Suspense>
+      {timeMode >= 1 && (
+        <mesh position={[0, 0.1, 2.05]}>
+          <boxGeometry args={[1.1, 0.12, 0.06]} />
+          <meshStandardMaterial color="#fef08a" emissive="#fef08a" emissiveIntensity={4} />
+        </mesh>
+      )}
     </RigidBody>
   );
 }
