@@ -10,27 +10,6 @@ const CENTER_LON = 69.0035;
 const METERS_PER_LAT = 111320;
 const METERS_PER_LON = 111320 * Math.cos((CENTER_LAT * Math.PI) / 180);
 
-function latLonToXZ(lat: number, lon: number): [number, number] {
-  return [(lon - CENTER_LON) * METERS_PER_LON, -(lat - CENTER_LAT) * METERS_PER_LAT];
-}
-
-function lon2tile(lon: number, zoom: number) {
-  return Math.floor(((lon + 180) / 360) * Math.pow(2, zoom));
-}
-function lat2tile(lat: number, zoom: number) {
-  return Math.floor(
-    ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
-      Math.pow(2, zoom)
-  );
-}
-function tile2lon(x: number, zoom: number) {
-  return (x / Math.pow(2, zoom)) * 360 - 180;
-}
-function tile2lat(y: number, zoom: number) {
-  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, zoom);
-  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-}
-
 const LOCATIONS = [
   {
     name: 'Крепость Муг-Теппа',
@@ -114,23 +93,6 @@ interface RoadSegment {
   x2: number;
   z2: number;
   width: number;
-}
-
-interface BuildingItem {
-  points: [number, number][];
-  height: number;
-  color: string;
-  lit: boolean;
-}
-
-interface BuildingBox {
-  x: number;
-  z: number;
-  w: number;
-  h: number;
-  d: number;
-  rot: number;
-  color: string;
 }
 
 const worldState = {
@@ -302,50 +264,6 @@ function createAsphaltPBR() {
   });
   map.colorSpace = THREE.SRGBColorSpace;
   return { map, normalMap, roughnessMap };
-}
-
-function createFacadePBR() {
-  const size = 256;
-  const diffCanvas = document.createElement('canvas');
-  const normCanvas = document.createElement('canvas');
-  diffCanvas.width = normCanvas.width = size;
-  diffCanvas.height = normCanvas.height = size;
-
-  const dCtx = diffCanvas.getContext('2d')!;
-  const nCtx = normCanvas.getContext('2d')!;
-
-  dCtx.fillStyle = '#ebe3d5';
-  dCtx.fillRect(0, 0, size, size);
-  nCtx.fillStyle = 'rgb(128, 128, 255)';
-  nCtx.fillRect(0, 0, size, size);
-
-  for (let y = 0; y < size; y += 64) {
-    dCtx.fillStyle = '#cfc2ad';
-    dCtx.fillRect(0, y, size, 7);
-    nCtx.fillStyle = 'rgb(128, 185, 255)';
-    nCtx.fillRect(0, y, size, 7);
-  }
-
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 4; col++) {
-      const lit = (row * 7 + col * 3) % 4 === 0;
-      const wx = 18 + col * 60;
-      const wy = 14 + row * 64;
-      dCtx.fillStyle = lit ? '#fef08a' : '#0b1120';
-      dCtx.fillRect(wx, wy, 34, 38);
-      dCtx.strokeStyle = '#94a3b8';
-      dCtx.lineWidth = 2;
-      dCtx.strokeRect(wx, wy, 34, 38);
-
-      nCtx.fillStyle = 'rgb(128, 85, 255)';
-      nCtx.fillRect(wx, wy, 34, 38);
-    }
-  }
-
-  const map = new THREE.CanvasTexture(diffCanvas);
-  const normalMap = new THREE.CanvasTexture(normCanvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return { map, normalMap };
 }
 
 function createSignTexture(text: string, bg: string): THREE.CanvasTexture {
