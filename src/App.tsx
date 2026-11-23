@@ -949,199 +949,121 @@ function useControls() {
   return controls;
 }
 
-// Стриминг чанков всего Истаравшана (11 846 дорог -> рендерятся только 9 квадратов вокруг машины)
+// Лёгкий городок по мотивам схемы Истаравшана без тяжёлого стриминга тысяч сегментов
+const TOWN_ROADS: RoadSegment[] = [
+  { x1: -420, z1: 0, x2: 420, z2: 0, width: 14 },
+  { x1: 0, z1: -420, x2: 0, z2: 420, width: 14 },
+  { x1: -360, z1: -140, x2: 360, z2: -140, width: 10 },
+  { x1: -360, z1: 140, x2: 360, z2: 140, width: 10 },
+  { x1: -180, z1: -360, x2: -180, z2: 360, width: 10 },
+  { x1: 180, z1: -360, x2: 180, z2: 360, width: 10 },
+  { x1: -320, z1: -280, x2: 320, z2: -280, width: 8 },
+  { x1: -320, z1: 280, x2: 320, z2: 280, width: 8 },
+];
+
+const TOWN_BLOCKS: { x: number; z: number; w: number; h: number; d: number; color: string }[] = [
+  { x: -90, z: -70, w: 54, h: 10, d: 38, color: '#cbd5e1' },
+  { x: 90, z: -70, w: 58, h: 12, d: 40, color: '#e2e8f0' },
+  { x: -90, z: 70, w: 52, h: 9, d: 36, color: '#d6d3d1' },
+  { x: 90, z: 70, w: 62, h: 11, d: 42, color: '#cbd5e1' },
+  { x: -250, z: -70, w: 48, h: 8, d: 34, color: '#e7e5e4' },
+  { x: 250, z: -70, w: 50, h: 9, d: 36, color: '#cbd5e1' },
+  { x: -250, z: 70, w: 46, h: 8, d: 34, color: '#d6d3d1' },
+  { x: 250, z: 70, w: 52, h: 10, d: 38, color: '#e2e8f0' },
+  { x: -90, z: -210, w: 56, h: 9, d: 38, color: '#cbd5e1' },
+  { x: 90, z: -210, w: 54, h: 8, d: 36, color: '#e7e5e4' },
+  { x: -90, z: 210, w: 58, h: 10, d: 38, color: '#e2e8f0' },
+  { x: 90, z: 210, w: 52, h: 8, d: 36, color: '#d6d3d1' },
+];
+
+const TOWN_TREES: [number, number][] = [
+  [-45, -12], [45, -12], [-45, 12], [45, 12],
+  [-135, -12], [135, -12], [-135, 12], [135, 12],
+  [-12, -85], [12, -85], [-12, 85], [12, 85],
+  [-12, -195], [12, -195], [-12, 195], [12, 195],
+];
+
 function IstaravshanCity({
   timeMode,
-  isRain,
+  isRain: _isRain,
   onStatus,
 }: {
   timeMode: number;
   isRain: boolean;
   onStatus: (text: string) => void;
 }) {
-  const [cityData, setCityData] = useState(() => buildFallbackCity());
-  const [chunkCoords, setChunkCoords] = useState<[number, number]>([0, 0]);
   const asphaltPBR = useMemo(() => createAsphaltPBR(), []);
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}istaravshan.json`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Файл не найден');
-        return res.json();
-      })
-      .then((data) => {
-        if (data.roads?.length > 0) {
-          setCityData(data);
-          onStatus(`Весь Истаравшан: ${data.roads.length} дорог (Чанк-стриминг)`);
-        }
-      })
-      .catch(() => {
-        onStatus('Истаравшан: автономная карта');
-      });
+    worldState.nearbyRoads = TOWN_ROADS;
+    onStatus('Истаравшан: лёгкая схема городка');
   }, [onStatus]);
-
-  // Индексируем все 11 846 дорог по квадратам 500x500м
-  const roadChunks = useMemo(() => {
-    const map = new Map<string, RoadSegment[]>();
-    for (const r of cityData.roads) {
-      const mx = (r.x1 + r.x2) * 0.5;
-      const mz = (r.z1 + r.z2) * 0.5;
-      const cx = Math.floor(mx / CHUNK_SIZE);
-      const cz = Math.floor(mz / CHUNK_SIZE);
-      const key = `${cx},${cz}`;
-      let list = map.get(key);
-      if (!list) {
-        list = [];
-        map.set(key, list);
-      }
-      list.push(r);
-    }
-    return map;
-  }, [cityData.roads]);
-
-  // Отслеживаем текущий чанк игрока без лишних ререндеров
-  useFrame(() => {
-    const cx = Math.floor(worldState.activePos.x / CHUNK_SIZE);
-    const cz = Math.floor(worldState.activePos.z / CHUNK_SIZE);
-    if (cx !== chunkCoords[0] || cz !== chunkCoords[1]) {
-      setChunkCoords([cx, cz]);
-    }
-  });
-
-  // Собираем дороги из 3x3 ближайших чанков (до ~1500 м вокруг игрока)
-  const visibleRoads = useMemo(() => {
-    const result: RoadSegment[] = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dz = -1; dz <= 1; dz++) {
-        const list = roadChunks.get(`${chunkCoords[0] + dx},${chunkCoords[1] + dz}`);
-        if (list) result.push(...list);
-      }
-    }
-    return result.slice(0, 420);
-  }, [roadChunks, chunkCoords]);
-
-  useEffect(() => {
-    worldState.nearbyRoads = visibleRoads;
-  }, [visibleRoads]);
-
-  const buildingGeoms = useMemo(() => {
-    return cityData.buildings.map((b) => {
-      const shape = new THREE.Shape();
-      b.points.forEach(([x, z], i) => {
-        if (i === 0) shape.moveTo(x, -z);
-        else shape.lineTo(x, -z);
-      });
-      const geom = new THREE.ExtrudeGeometry(shape, { depth: b.height, bevelEnabled: false });
-      geom.rotateX(-Math.PI / 2);
-      return { geom, color: b.color, lit: b.lit };
-    });
-  }, [cityData.buildings]);
 
   return (
     <group>
-      <SatelliteGround timeMode={timeMode} isRain={isRain} />
       <SurroundingMountains timeMode={timeMode} />
       <MugTeppaMonument timeMode={timeMode} />
-      <AutoCityBuildings roads={visibleRoads} timeMode={timeMode} />
-      <IstaravshanTrees roads={visibleRoads} />
 
       {CITY_SIGNS.map((s, idx) => (
         <CitySignBoard key={idx} {...s} timeMode={timeMode} />
       ))}
 
-      {visibleRoads.map((r, i) => {
+      {TOWN_ROADS.map((r, i) => {
         const dx = r.x2 - r.x1;
         const dz = r.z2 - r.z1;
         const len = Math.hypot(dx, dz);
-        if (len < 0.4) return null;
         const angle = Math.atan2(dx, dz);
         return (
           <group
-            key={`${chunkCoords[0]}_${chunkCoords[1]}_${i}`}
+            key={i}
             position={[(r.x1 + r.x2) / 2, 0.03, (r.z1 + r.z2) / 2]}
             rotation={[0, angle, 0]}
           >
             <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[r.width + 2.4, len + 2.4]} />
-              <meshStandardMaterial color="#94a3b8" roughness={isRain ? 0.3 : 0.9} />
-            </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-              <planeGeometry args={[r.width, len + 2.2]} />
+              <planeGeometry args={[r.width, len]} />
               <meshStandardMaterial
                 map={asphaltPBR.map}
-                normalMap={asphaltPBR.normalMap}
-                roughnessMap={isRain ? null : asphaltPBR.roughnessMap}
-                color={isRain ? '#1e293b' : '#ffffff'}
-                roughness={isRain ? 0.14 : 0.85}
-                metalness={isRain ? 0.65 : 0.1}
+                roughness={0.85}
+                metalness={0.05}
               />
             </mesh>
-            {r.width >= 10 && (
-              <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[0.25, len]} />
-                <meshStandardMaterial color="#f8fafc" />
-              </mesh>
-            )}
+            <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[0.16, len]} />
+              <meshBasicMaterial color="#f8fafc" />
+            </mesh>
           </group>
         );
       })}
 
-      {buildingGeoms.map((b, i) => (
-        <mesh key={i} geometry={b.geom}>
-          <meshStandardMaterial
-            color={b.color}
-            roughness={0.75}
-            emissive={timeMode >= 1 && b.lit ? '#fef08a' : '#000000'}
-            emissiveIntensity={timeMode === 2 && b.lit ? 0.3 : 0}
-          />
-        </mesh>
+      {TOWN_BLOCKS.map((b, i) => (
+        <RigidBody key={i} type="fixed" position={[b.x, b.h / 2, b.z]}>
+          <mesh>
+            <boxGeometry args={[b.w, b.h, b.d]} />
+            <meshStandardMaterial
+              color={b.color}
+              roughness={0.75}
+              emissive={timeMode === 2 ? '#fef08a' : '#000000'}
+              emissiveIntensity={timeMode === 2 ? 0.15 : 0}
+            />
+          </mesh>
+        </RigidBody>
+      ))}
+
+      {TOWN_TREES.map(([tx, tz], i) => (
+        <group key={i} position={[tx, 0, tz]}>
+          <mesh position={[0, 1.6, 0]}>
+            <cylinderGeometry args={[0.2, 0.3, 3.2, 6]} />
+            <meshStandardMaterial color="#5c4033" roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 4.1, 0]}>
+            <dodecahedronGeometry args={[2.1, 0]} />
+            <meshStandardMaterial color="#3f6212" roughness={0.85} />
+          </mesh>
+        </group>
       ))}
     </group>
   );
 }
-
-function Pedestrian({ cfg }: { cfg: (typeof PEDESTRIANS)[number] }) {
-  const groupRef = useRef<any>(null);
-  const posZ = useRef(cfg.startZ);
-  const offsetX = useRef(cfg.sideX);
-  const [animMode, setAnimMode] = useState<'Walk' | 'Run'>('Walk');
-  const lastMode = useRef<'Walk' | 'Run'>('Walk');
-
-  useFrame((_, delta) => {
-    const g = groupRef.current;
-    if (!g) return;
-
-    const distToPlayer = Math.hypot(worldState.activePos.x - offsetX.current, worldState.activePos.z - posZ.current);
-    const isScared = distToPlayer < 13;
-    const nextMode = isScared ? 'Run' : 'Walk';
-    if (nextMode !== lastMode.current) {
-      lastMode.current = nextMode;
-      setAnimMode(nextMode);
-    }
-
-    const speed = isScared ? 4.8 : 1.5;
-    posZ.current += cfg.dir * speed * delta;
-    if (posZ.current > 200) posZ.current = -200;
-    if (posZ.current < -200) posZ.current = 200;
-
-    const targetX = isScared ? cfg.sideX + Math.sign(cfg.sideX) * 3.5 : cfg.sideX;
-    offsetX.current += (targetX - offsetX.current) * 5 * delta;
-
-    g.position.set(offsetX.current, 0, posZ.current);
-    g.rotation.y = cfg.dir === 1 ? 0 : Math.PI;
-  });
-
-  return (
-    <group ref={groupRef} position={[cfg.sideX, 0, cfg.startZ]}>
-      <Suspense fallback={null}>
-        <AnimatedPersonMesh actionName={animMode} />
-      </Suspense>
-    </group>
-  );
-}
-
-const TRAFFIC_UP_AXIS = new THREE.Vector3(0, 1, 0);
-const TRAFFIC_QUAT = new THREE.Quaternion();
 
 function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode: number }) {
   const bodyRef = useRef<any>(null);
