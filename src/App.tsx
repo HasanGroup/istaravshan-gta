@@ -1144,6 +1144,7 @@ export default function App() {
   const [charSpawnPos, setCharSpawnPos] = useState<[number, number, number]>([2, 1.5, 0]);
   const [energy, setEnergy] = useState(85);
   const [isRain, setIsRain] = useState(false);
+  const [showHud, setShowHud] = useState(true);
 
   const [money, setMoney] = useState<number>(() => Number(localStorage.getItem('ist_money') || 250));
   const [ownedCars, setOwnedCars] = useState<number[]>(() => {
@@ -1330,41 +1331,60 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+{showHud ? (
       <div
         style={{
           position: 'absolute',
-          top: 16,
-          left: 16,
+          top: 12,
+          left: 14,
           zIndex: 10,
-          background: 'rgba(9, 13, 22, 0.85)',
+          background: 'rgba(9, 13, 22, 0.72)',
           color: '#f8fafc',
-          padding: '12px 16px',
-          borderRadius: '12px',
+          padding: '8px 12px',
+          borderRadius: '10px',
           fontFamily: 'sans-serif',
-          fontSize: '13px',
-          border: '1px solid rgba(56, 189, 248, 0.4)',
+          fontSize: '12px',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          maxWidth: '420px',
         }}
       >
-        <div style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: 4, color: '#38bdf8' }}>
-          ISTARAVSHAN LIVE — Весь город 8×8 км
-        </div>
-        <div style={{ color: '#94a3b8', marginBottom: 4 }}>{mapStatus}</div>
-        <div style={{ color: '#cbd5e1', marginBottom: 4 }}>
-          Авто: <b>{activeCar.name}</b> | Энергия: <b>{energy}%</b>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+          <span style={{ fontWeight: 'bold', color: '#38bdf8' }}>ISTARAVSHAN</span>
+          <span style={{ color: '#94a3b8' }}>⚡ {energy}%</span>
         </div>
         {raceActive ? (
-          <div style={{ color: '#f43f5e', fontWeight: 'bold', marginBottom: 6 }}>
-            ГОНКА: Точка {raceStep + 1}/{RACE_CHECKPOINTS.length} | Время: {raceTime}с
+          <div style={{ color: '#f43f5e', fontWeight: 'bold', marginBottom: 3 }}>
+            ГОНКА {raceStep + 1}/{RACE_CHECKPOINTS.length} • {raceTime}с
           </div>
         ) : (
-          <div style={{ color: isMissionActive ? '#facc15' : '#4ade80', marginBottom: 6 }}>
+          <div style={{ color: isMissionActive ? '#facc15' : '#4ade80', marginBottom: 3 }}>
             {isMissionActive ? `Цель: ${targetLoc.name}` : `Заказ: ${targetLoc.name}`}
           </div>
         )}
-        <div>
-          <b>V</b> — салон | <b>F</b> — выйти | <b>M</b> — дождь | <b>N</b> — день/ночь | <b>C</b> — авто | <b>E</b> — место
+        <div style={{ color: '#cbd5e1', fontSize: '11px' }}>
+          <b>V</b> вид • <b>F</b> выйти • <b>M</b> дождь • <b>N</b> свет • <b>C</b> авто • <b>E</b> место • <b>H</b> скрыть
         </div>
       </div>
+      ) : (
+        <button
+          onClick={() => setShowHud(true)}
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 14,
+            zIndex: 10,
+            background: 'rgba(9, 13, 22, 0.65)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+            borderRadius: '8px',
+            padding: '6px 10px',
+            fontSize: '11px',
+            cursor: 'pointer',
+          }}
+        >
+          HUD (H)
+        </button>
+      )}
 
       <div
         style={{
