@@ -377,6 +377,21 @@ function AnimatedPersonMesh({ actionName }: { actionName: 'Idle' | 'Walk' | 'Run
   );
 }
 
+function FallbackCarMesh({ color }: { color: string }) {
+  return (
+    <group>
+      <mesh position={[0, 0.05, 0]}>
+        <boxGeometry args={[1.85, 0.55, 4.2]} />
+        <meshStandardMaterial color={color} roughness={0.25} metalness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.52, -0.15]}>
+        <boxGeometry args={[1.5, 0.48, 2.1]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.1} metalness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
 function RealGLBCarModel({ color, wheelSpin }: { color: string; wheelSpin: React.MutableRefObject<number> }) {
   const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/car.glb`);
   const wheelsRef = useRef<THREE.Object3D[]>([]);
@@ -386,19 +401,18 @@ function RealGLBCarModel({ color, wheelSpin }: { color: string; wheelSpin: React
     const wheels: THREE.Object3D[] = [];
 
     clone.traverse((child: any) => {
+      child.visible = true;
       if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = false;
+        child.receiveShadow = false;
         const matName = (child.material?.name || '').toLowerCase();
         const objName = (child.name || '').toLowerCase();
 
         if (matName.includes('body') || objName.includes('body')) {
-          child.material = new THREE.MeshPhysicalMaterial({
+          child.material = new THREE.MeshStandardMaterial({
             color,
-            metalness: 0.75,
-            roughness: 0.16,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.08,
+            metalness: 0.7,
+            roughness: 0.22,
           });
         }
       }
@@ -424,8 +438,6 @@ function RealGLBCarModel({ color, wheelSpin }: { color: string; wheelSpin: React
 
   return <primitive object={clonedScene} scale={1.12} position={[0, -0.52, 0]} rotation={[0, Math.PI, 0]} />;
 }
-
-
 function CitySignBoard({
   text,
   x,
@@ -772,6 +784,23 @@ function IstaravshanCity({
         </group>
       ))}
 
+      {[-160, -80, 0, 80, 160].map((pos, idx) => (
+        <group key={`lamp_${idx}`} position={[pos, 0, 8.2]}>
+          <mesh position={[0, 3.2, 0]}>
+            <cylinderGeometry args={[0.08, 0.12, 6.4, 6]} />
+            <meshStandardMaterial color="#334155" metalness={0.6} roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 6.3, -0.4]}>
+            <boxGeometry args={[0.35, 0.14, 0.9]} />
+            <meshStandardMaterial
+              color="#fef08a"
+              emissive={timeMode >= 1 ? '#fef08a' : '#000000'}
+              emissiveIntensity={timeMode === 2 ? 4 : timeMode === 1 ? 2 : 0}
+            />
+          </mesh>
+        </group>
+      ))}
+
       {TOWN_BUSHES.map(([bx, bz, s], i) => (
         <mesh key={i} position={[bx, 0.65 * s, bz]} scale={[s * 1.3, s * 0.85, s]}>
           <dodecahedronGeometry args={[0.9, 0]} />
@@ -829,7 +858,7 @@ function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode
       type="kinematicPosition"
       position={[cfg.axis === 'x' ? cfg.start : cfg.lane, 0.58, cfg.axis === 'z' ? cfg.start : cfg.lane]}
     >
-      <Suspense fallback={null}>
+      <Suspense fallback={<FallbackCarMesh color={cfg.color} />}>
         <RealGLBCarModel color={cfg.color} wheelSpin={wheelSpin} />
       </Suspense>
       {timeMode >= 1 && (
@@ -1130,7 +1159,7 @@ function PlayerCar({
     >
       <CuboidCollider args={[0.95, 0.55, 2.25]} />
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<FallbackCarMesh color={carSpec.color} />}>
         <RealGLBCarModel color={carSpec.color} wheelSpin={wheelSpin} />
       </Suspense>
 
