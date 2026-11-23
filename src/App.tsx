@@ -9,7 +9,6 @@ const CENTER_LAT = 39.9115;
 const CENTER_LON = 69.0035;
 const METERS_PER_LAT = 111320;
 const METERS_PER_LON = 111320 * Math.cos((CENTER_LAT * Math.PI) / 180);
-const CHUNK_SIZE = 500;
 
 function latLonToXZ(lat: number, lon: number): [number, number] {
   return [(lon - CENTER_LON) * METERS_PER_LON, -(lat - CENTER_LAT) * METERS_PER_LAT];
@@ -512,81 +511,6 @@ function RealGLBCarModel({ color, wheelSpin }: { color: string; wheelSpin: React
   return <primitive object={clonedScene} scale={1.12} position={[0, -0.52, 0]} rotation={[0, Math.PI, 0]} />;
 }
 
-function IstaravshanTrees({ roads }: { roads: RoadSegment[] }) {
-  const trunkRef = useRef<any>(null);
-  const crownRef = useRef<any>(null);
-
-  const trees = useMemo(() => {
-    if (roads.length < 5) return [];
-    const list: { x: number; z: number; scale: number }[] = [];
-    for (let i = 0; i < roads.length; i += 3) {
-      const r = roads[i];
-      const dx = r.x2 - r.x1;
-      const dz = r.z2 - r.z1;
-      const len = Math.hypot(dx, dz);
-      if (len < 8) continue;
-
-      const angle = Math.atan2(dx, dz);
-      const nx = Math.cos(angle);
-      const nz = -Math.sin(angle);
-      const mx = (r.x1 + r.x2) * 0.5;
-      const mz = (r.z1 + r.z2) * 0.5;
-
-      const side = i % 2 === 0 ? 1 : -1;
-      const dist = r.width * 0.5 + 2.4;
-      const tx = mx + nx * dist * side;
-      const tz = mz + nz * dist * side;
-
-      if (Math.hypot(tx, tz - 42) < 25) continue;
-
-      const seed = Math.abs(Math.floor(tx * 11 + tz * 17));
-      list.push({ x: tx, z: tz, scale: 0.8 + (seed % 7) * 0.14 });
-      if (list.length >= 450) break;
-    }
-    return list;
-  }, [roads]);
-
-  useEffect(() => {
-    if (!trunkRef.current || !crownRef.current || trees.length === 0) return;
-    const dummy = new THREE.Object3D();
-    const color = new THREE.Color();
-    const greens = ['#2d5a27', '#3a6b35', '#4a7c44', '#264e22'];
-
-    trees.forEach((t, i) => {
-      dummy.position.set(t.x, 1.8 * t.scale, t.z);
-      dummy.scale.set(t.scale, t.scale, t.scale);
-      dummy.updateMatrix();
-      trunkRef.current.setMatrixAt(i, dummy.matrix);
-
-      dummy.position.set(t.x, 4.6 * t.scale, t.z);
-      dummy.scale.set(t.scale * 1.2, t.scale * 1.1, t.scale * 1.2);
-      dummy.updateMatrix();
-      crownRef.current.setMatrixAt(i, dummy.matrix);
-
-      color.set(greens[i % greens.length]);
-      crownRef.current.setColorAt(i, color);
-    });
-
-    trunkRef.current.instanceMatrix.needsUpdate = true;
-    crownRef.current.instanceMatrix.needsUpdate = true;
-    if (crownRef.current.instanceColor) crownRef.current.instanceColor.needsUpdate = true;
-  }, [trees]);
-
-  if (trees.length === 0) return null;
-
-  return (
-    <group>
-      <instancedMesh ref={trunkRef} args={[undefined, undefined, trees.length]} castShadow>
-        <cylinderGeometry args={[0.18, 0.28, 3.6, 7]} />
-        <meshStandardMaterial color="#4a3525" roughness={0.9} />
-      </instancedMesh>
-      <instancedMesh ref={crownRef} args={[undefined, undefined, trees.length]}>
-        <dodecahedronGeometry args={[2.2, 1]} />
-        <meshStandardMaterial roughness={0.85} />
-      </instancedMesh>
-    </group>
-  );
-}
 
 function CitySignBoard({
   text,
@@ -624,216 +548,8 @@ function CitySignBoard({
 }
 
 // Спутниковая карта на весь Истаравшан (8 x 8 км)
-function SatelliteGround({ timeMode, isRain }: { timeMode: number; isRain: boolean }) {
-  const [satData, setSatData] = useState<{
-    tex: THREE.CanvasTexture;
-    centerX: number;
-    centerZ: number;
-    width: number;
-    depth: number;
-  } | null>(null);
-
-  useEffect(() => {
-    const zoom = 14;
-    const grid = 7;
-    const half = Math.floor(grid / 2);
-    const cx = lon2tile(CENTER_LON, zoom);
-    const cy = lat2tile(CENTER_LAT, zoom);
-
-    const minX = cx - half;
-    const maxX = cx + half + 1;
-    const minY = cy - half;
-    const maxY = cy + half + 1;
-
-    const nwLon = tile2lon(minX, zoom);
-    const nwLat = tile2lat(minY, zoom);
-    const seLon = tile2lon(maxX, zoom);
-    const seLat = tile2lat(maxY, zoom);
-
-    const [x1, z1] = latLonToXZ(nwLat, nwLon);
-    const [x2, z2] = latLonToXZ(seLat, seLon);
-
-    const canvas = document.createElement('canvas');
-    const tileSize = 256;
-    canvas.width = grid * tileSize;
-    canvas.height = grid * tileSize;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#3f4e3c';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    let loaded = 0;
-    const total = grid * grid;
-
-    for (let dx = -half; dx <= half; dx++) {
-      for (let dy = -half; dy <= half; dy++) {
-        const tx = cx + dx;
-        const ty = cy + dy;
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
-        img.onload = () => {
-          ctx.drawImage(img, (dx + half) * tileSize, (dy + half) * tileSize, tileSize, tileSize);
-          loaded++;
-          if (loaded === total) {
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.colorSpace = THREE.SRGBColorSpace;
-            tex.anisotropy = 8;
-            setSatData({
-              tex,
-              centerX: (x1 + x2) / 2,
-              centerZ: (z1 + z2) / 2,
-              width: Math.abs(x2 - x1),
-              depth: Math.abs(z2 - z1),
-            });
-          }
-        };
-      }
-    }
-  }, []);
-
-  const groundTint = isRain ? '#64748b' : timeMode === 2 ? '#334155' : timeMode === 1 ? '#fed7aa' : '#ffffff';
-
-  return (
-    <group>
-      <RigidBody type="fixed" friction={1}>
-        <mesh receiveShadow position={[0, -1, 0]}>
-          <boxGeometry args={[12000, 2, 12000]} />
-          <meshStandardMaterial color={timeMode === 2 ? '#1a241e' : '#4b5842'} roughness={0.95} />
-        </mesh>
-      </RigidBody>
-
-      {satData && (
-        <mesh
-          position={[satData.centerX, 0.01, satData.centerZ]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          receiveShadow
-        >
-          <planeGeometry args={[satData.width, satData.depth]} />
-          <meshStandardMaterial map={satData.tex} color={groundTint} roughness={isRain ? 0.35 : 0.85} />
-        </mesh>
-      )}
-    </group>
-  );
-}
 
 // Здания для активных чанков вокруг игрока (с твердыми стенами)
-function AutoCityBuildings({ roads, timeMode }: { roads: RoadSegment[]; timeMode: number }) {
-  const meshRef = useRef<any>(null);
-  const facadePBR = useMemo(() => createFacadePBR(), []);
-
-  const placements = useMemo(() => {
-    if (roads.length < 5) return [];
-    const items: BuildingBox[] = [];
-    const colors = ['#f8fafc', '#ede6d6', '#e2e8f0', '#fde68a', '#fed7aa'];
-
-    const isClear = (px: number, pz: number) => {
-      if (Math.hypot(px, pz - 42) < 30) return false;
-      for (let i = 0; i < roads.length; i += 2) {
-        const r = roads[i];
-        const mx = (r.x1 + r.x2) * 0.5;
-        const mz = (r.z1 + r.z2) * 0.5;
-        if (Math.abs(px - mx) < 12 && Math.abs(pz - mz) < 12) return false;
-      }
-      for (let j = items.length - 1; j >= Math.max(0, items.length - 45); j--) {
-        if (Math.hypot(px - items[j].x, pz - items[j].z) < 13) return false;
-      }
-      return true;
-    };
-
-    for (let i = 0; i < roads.length; i += 2) {
-      const r = roads[i];
-      const dx = r.x2 - r.x1;
-      const dz = r.z2 - r.z1;
-      const len = Math.hypot(dx, dz);
-      if (len < 6) continue;
-
-      const angle = Math.atan2(dx, dz);
-      const nx = Math.cos(angle);
-      const nz = -Math.sin(angle);
-      const mx = (r.x1 + r.x2) * 0.5;
-      const mz = (r.z1 + r.z2) * 0.5;
-
-      for (const side of [-1, 1]) {
-        const offsetDist = r.width * 0.5 + 10.5;
-        const bx = mx + nx * offsetDist * side;
-        const bz = mz + nz * offsetDist * side;
-
-        if (!isClear(bx, bz)) continue;
-
-        const isMainStreet = r.width >= 10;
-        const seed = Math.abs(Math.floor(bx * 13 + bz * 7));
-        const h = isMainStreet ? 8 + (seed % 12) : 3.8 + (seed % 4);
-        const w = 9 + (seed % 7);
-        const d = 8 + ((seed * 3) % 6);
-
-        items.push({
-          x: bx,
-          z: bz,
-          w,
-          h,
-          d,
-          rot: angle,
-          color: colors[seed % colors.length],
-        });
-        if (items.length >= 420) return items;
-      }
-    }
-    return items;
-  }, [roads]);
-
-  useEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh || placements.length === 0) return;
-
-    const dummy = new THREE.Object3D();
-    const color = new THREE.Color();
-
-    placements.forEach((b, idx) => {
-      dummy.position.set(b.x, b.h / 2, b.z);
-      dummy.rotation.set(0, b.rot, 0);
-      dummy.scale.set(b.w, b.h, b.d);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(idx, dummy.matrix);
-      color.set(b.color);
-      mesh.setColorAt(idx, color);
-    });
-
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [placements]);
-
-  const colliders = useMemo(() => placements.slice(0, 160), [placements]);
-
-  if (placements.length === 0) return null;
-
-  return (
-    <group>
-      <instancedMesh ref={meshRef} args={[undefined, undefined, placements.length]} castShadow receiveShadow>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial
-          map={facadePBR.map}
-          normalMap={facadePBR.normalMap}
-          normalScale={new THREE.Vector2(1.2, 1.2)}
-          roughness={0.62}
-          metalness={0.12}
-          emissive={timeMode >= 1 ? '#fef08a' : '#000000'}
-          emissiveIntensity={timeMode === 2 ? 0.22 : timeMode === 1 ? 0.08 : 0}
-        />
-      </instancedMesh>
-
-      <RigidBody type="fixed" colliders={false}>
-        {colliders.map((b, idx) => (
-          <CuboidCollider
-            key={idx}
-            args={[b.w / 2, b.h / 2, b.d / 2]}
-            position={[b.x, b.h / 2, b.z]}
-            rotation={[0, b.rot, 0]}
-          />
-        ))}
-      </RigidBody>
-    </group>
-  );
-}
 
 function SurroundingMountains({ timeMode }: { timeMode: number }) {
   const peaks = useMemo(() => {
@@ -907,17 +623,6 @@ function MugTeppaMonument({ timeMode }: { timeMode: number }) {
   );
 }
 
-function buildFallbackCity(): { roads: RoadSegment[]; buildings: BuildingItem[] } {
-  const roads: RoadSegment[] = [
-    { x1: -300, z1: 0, x2: 300, z2: 0, width: 12 },
-    { x1: 0, z1: -300, x2: 0, z2: 300, width: 12 },
-    { x1: -300, z1: 90, x2: 300, z2: 90, width: 9 },
-    { x1: -300, z1: -90, x2: 300, z2: -90, width: 9 },
-    { x1: 110, z1: -300, x2: 110, z2: 300, width: 9 },
-    { x1: -110, z1: -300, x2: -110, z2: 300, width: 9 },
-  ];
-  return { roads, buildings: [] };
-}
 
 function useControls() {
   const controls = useRef({
@@ -1065,6 +770,9 @@ function IstaravshanCity({
   );
 }
 
+const TRAFFIC_UP_AXIS = new THREE.Vector3(0, 1, 0);
+const TRAFFIC_QUAT = new THREE.Quaternion();
+
 function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode: number }) {
   const bodyRef = useRef<any>(null);
   const posVal = useRef(cfg.start);
@@ -1115,6 +823,34 @@ function TrafficCar({ cfg, timeMode }: { cfg: (typeof TRAFFIC)[number]; timeMode
         </mesh>
       )}
     </RigidBody>
+  );
+}
+
+function Pedestrian({ cfg }: { cfg: (typeof PEDESTRIANS)[number] }) {
+  const meshRef = useRef<any>(null);
+  const posRef = useRef((cfg as any).start ?? 0);
+
+  useFrame((_, delta) => {
+    const m = meshRef.current;
+    if (!m) return;
+    const dt = Math.min(delta, 0.05);
+    const speed = (cfg as any).speed ?? 2.2;
+    const dir = (cfg as any).dir ?? 1;
+    posRef.current += dir * speed * dt;
+    if (posRef.current > 180) posRef.current = -180;
+    if (posRef.current < -180) posRef.current = 180;
+    const axis = (cfg as any).axis ?? 'x';
+    const lane = (cfg as any).lane ?? 8;
+    const x = axis === 'x' ? posRef.current : lane;
+    const z = axis === 'z' ? posRef.current : lane;
+    m.position.set(x, 0.9, z);
+  });
+
+  return (
+    <mesh ref={meshRef} position={[0, 0.9, 8]}>
+      <capsuleGeometry args={[0.32, 1.1, 4, 8]} />
+      <meshStandardMaterial color={(cfg as any).color ?? '#f59e0b'} roughness={0.7} />
+    </mesh>
   );
 }
 
