@@ -152,25 +152,28 @@ class SoundSystem {
 
   ensureCtx() {
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx() as AudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx() as AudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
     }
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    const ctx = this.ctx;
+    if (ctx && ctx.state === 'suspended') {
+      void ctx.resume();
+    }
   }
 
   playTone(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.06) {
     this.ensureCtx();
-    if (!this.ctx) return;
-    const now = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, now);
     g.gain.setValueAtTime(vol, now);
     g.gain.exponentialRampToValueAtTime(0.001, now + dur);
     o.connect(g);
-    g.connect(this.ctx.destination);
+    g.connect(ctx.destination);
     o.start(now);
     o.stop(now + dur);
   }
@@ -180,42 +183,46 @@ class SoundSystem {
     if (nowMs - this.lastScreech < 450) return;
     this.lastScreech = nowMs;
     this.ensureCtx();
-    if (!this.ctx) return;
+    const ctx = this.ctx;
+    if (!ctx) return;
 
-    const now = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
     o.type = 'sawtooth';
     o.frequency.setValueAtTime(920, now);
     o.frequency.exponentialRampToValueAtTime(540, now + 0.35);
     g.gain.setValueAtTime(0.055, now);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
     o.connect(g);
-    g.connect(this.ctx.destination);
+    g.connect(ctx.destination);
     o.start(now);
     o.stop(now + 0.38);
   }
 
   updateEngine(speedRatio: number, active: boolean) {
+    const ctx = this.ctx;
     if (!active) {
-      if (this.gain && this.ctx) this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+      if (this.gain && ctx) this.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
       return;
     }
-    if (!this.ctx && speedRatio > 0.02) {
+    if (!ctx && speedRatio > 0.02) {
       this.ensureCtx();
-      if (!this.ctx) return;
-      this.osc = this.ctx!.createOscillator();
-      this.gain = this.ctx!.createGain();
-      this.osc!.type = 'sawtooth';
-      this.osc!.frequency.value = 45;
-      this.gain!.gain.value = 0.02;
-      this.osc!.connect(this.gain!);
-      this.gain!.connect(this.ctx!.destination);
-      this.osc!.start();
+      const nextCtx = this.ctx;
+      if (!nextCtx) return;
+      this.osc = nextCtx.createOscillator();
+      this.gain = nextCtx.createGain();
+      this.osc.type = 'sawtooth';
+      this.osc.frequency.value = 45;
+      this.gain.gain.value = 0.02;
+      this.osc.connect(this.gain);
+      this.gain.connect(nextCtx.destination);
+      this.osc.start();
     }
-    if (this.ctx && this.osc && this.gain) {
-      this.osc.frequency.setTargetAtTime(42 + speedRatio * 105, this.ctx.currentTime, 0.08);
-      this.gain.gain.setTargetAtTime(0.015 + speedRatio * 0.022, this.ctx.currentTime, 0.08);
+    const activeCtx = this.ctx;
+    if (activeCtx && this.osc && this.gain) {
+      this.osc.frequency.setTargetAtTime(42 + speedRatio * 105, activeCtx.currentTime, 0.08);
+      this.gain.gain.setTargetAtTime(0.015 + speedRatio * 0.022, activeCtx.currentTime, 0.08);
     }
   }
 
@@ -226,7 +233,8 @@ class SoundSystem {
     }
     if (station === 0) return;
     this.ensureCtx();
-    if (!this.ctx) return;
+    const audioCtx = this.ctx;
+    if (!audioCtx) return;
 
     const notes1 = [293.66, 311.13, 369.99, 392.0, 440.0, 466.16, 554.37, 587.33];
     const notes2 = [110.0, 110.0, 130.81, 146.83, 164.81, 146.83, 130.81, 98.0];
@@ -235,15 +243,15 @@ class SoundSystem {
 
     this.radioTimer = window.setInterval(() => {
       if (!this.ctx) return;
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
       osc.type = station === 1 ? 'triangle' : 'sawtooth';
       osc.frequency.value = scale[this.step % scale.length];
       g.gain.setValueAtTime(0.032, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
       osc.connect(g);
-      g.connect(this.ctx.destination);
+      g.connect(audioCtx.destination);
       osc.start(now);
       osc.stop(now + 0.25);
       this.step++;
